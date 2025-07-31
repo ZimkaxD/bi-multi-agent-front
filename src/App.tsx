@@ -10,11 +10,12 @@ import {
 import clsx from "clsx";
 
 type BackendResponse = {
-  goal: "sql" | "chart" | "both" | string;
+  goal: "search" | "chart" | "insert" | "both" | string;
   sql?: string;
   results?: Record<string, any>[];
   charts_type?: string[];
   charts_data?: Record<string, { name: string; value: number }[]>;
+  inserted?: boolean;
   error?: string;
 };
 
@@ -36,17 +37,17 @@ function ChartPanel({ type, data, sql, results, idx }: ChartPanelProps) {
   };
   const title = titles[type] || type;
 
-const cols = Object.keys(results[0] || {});
+  const cols = Object.keys(results[0] || {});
   const xField = cols[0] ?? "name";
-  const yField = cols[0] ?? "value";
-
+  const yField = cols[1] ?? "value";
   const seriesName = yField;
 
+  const common = {
+    data,
+    margin: { top: 10, right: 10, left: 10, bottom: 10 },
+  };
+
   const renderInner = () => {
-    const common = {
-      data,
-      margin: { top: 10, right: 10, left: 10, bottom: 10 },
-    };
     switch (type) {
       case "barchart":
         return (
@@ -67,7 +68,7 @@ const cols = Object.keys(results[0] || {});
             <YAxis />
             <Tooltip />
             <Legend />
-             <Line type="monotone" dataKey="value" name={seriesName} stroke="#10b981" />
+            <Line type="monotone" dataKey="value" name={seriesName} stroke="#10b981" />
           </LineChart>
         );
       case "piechart":
@@ -98,7 +99,7 @@ const cols = Object.keys(results[0] || {});
           <ScatterChart {...common}>
             <CartesianGrid />
             <XAxis dataKey="name" label={{ value: xField, position: "insideBottom", dy: 10 }} />
-             <YAxis dataKey="value" label={{ value: seriesName, angle: -90, position: "insideLeft" }} />
+            <YAxis dataKey="value" label={{ value: seriesName, angle: -90, position: "insideLeft" }} />
             <Tooltip />
             <Legend />
             <Scatter name={seriesName} data={data} fill="#ef4444" />
@@ -186,14 +187,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8 px-4 space-y-8">
-      <header className="text-center">
+      <header>
         <h1 className="text-3xl font-bold text-gray-800">BI Мульти-Агент</h1>
       </header>
 
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-xl bg-white rounded-lg shadow p-6 space-y-4"
-      >
+      <form onSubmit={handleSubmit} className="w-full max-w-xl bg-white rounded-lg shadow p-6 space-y-4">
         <label className="block text-gray-700 font-medium">Ваш запрос:</label>
         <input
           type="text"
@@ -214,61 +212,60 @@ export default function App() {
         </button>
       </form>
 
+
       {response?.error && (
         <div className="w-full max-w-xl bg-red-100 border border-red-300 text-red-800 rounded-lg p-4">
           <strong>Ошибка:</strong> {response.error}
         </div>
       )}
 
-      {response && (response.goal === "sql" || response.goal === "both") && response.results && (
-        <section className="w-full max-w-2xl space-y-4">
-          <h2 className="text-2xl font-semibold text-gray-700">📝 SQL‑запрос и таблица</h2>
-          <div className="bg-white rounded-lg shadow p-4 space-y-4">
-            <details className="bg-gray-50 border border-gray-200 rounded p-3">
-              <summary className="cursor-pointer font-medium text-gray-700">
-                📝 Показать SQL-запрос
-              </summary>
-              <pre className="mt-2 bg-gray-100 rounded p-2 overflow-auto text-sm text-gray-800">
-                <code>{response.sql}</code>
-              </pre>
-            </details>
 
-            <div className="overflow-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-100">
-                  <tr>
-                    {Object.keys(response.results[0]).map((col) => (
-                      <th
-                        key={col}
-                        className="px-4 py-2 text-left text-gray-600 font-medium"
-                      >
-                        {col}
-                      </th>
+      {(response?.goal === "search" || response?.goal === "both") && response.results && (
+        <section className="w-full max-w-2xl space-y-4">
+          <h2 className="text-2xl font-semibold text-gray-700">📝 Результат поиска</h2>
+          <details className="bg-gray-50 border border-gray-200 rounded p-3">
+            <summary className="cursor-pointer font-medium text-gray-700">📝 Показать SQL-запрос</summary>
+            <pre className="mt-2 bg-gray-100 rounded p-2 overflow-auto text-sm text-gray-800">
+              <code>{response.sql}</code>
+            </pre>
+          </details>
+          <div className="overflow-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-100">
+                <tr>
+                  {Object.keys(response.results[0]).map((col) => (
+                    <th key={col} className="px-4 py-2 text-left text-gray-600 font-medium">{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {response.results.map((row, i) => (
+                  <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                    {Object.values(row).map((val, j) => (
+                      <td key={j} className="px-4 py-2 text-gray-700">{String(val)}</td>
                     ))}
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {response.results.map((row, i) => (
-                    <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      {Object.values(row).map((val, j) => (
-                        <td key={j} className="px-4 py-2 text-gray-700">
-                          {String(val)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
 
-      {response && (response.goal === "chart" || response.goal === "both") && response.charts_type && (
+      {response?.goal === "insert" && (
+        <div className="w-full max-w-2xl bg-green-100 border border-green-300 text-green-800 rounded-lg p-4">
+          <h2>✅ Данные успешно добавлены</h2>
+          <pre className="mt-2 bg-green-50 rounded p-2 overflow-auto text-sm text-green-800">
+            <code>{response.sql}</code>
+          </pre>
+        </div>
+      )}
+
+      {(response?.goal === "chart" || response?.goal === "both") && response.charts_type && (
         <section className="w-full max-w-2xl space-y-6">
           <h2 className="text-2xl font-semibold text-gray-700">📈 Графики</h2>
-          {response.charts_type.map((type, idx) =>
-            response.charts_data ? (
+          {response.charts_type.map((type, idx) => (
+            response.charts_data?.[type] && (
               <ChartPanel
                 key={type + idx}
                 type={type}
@@ -277,8 +274,8 @@ export default function App() {
                 results={response.results!}
                 idx={idx}
               />
-            ) : null
-          )}
+            )
+          ))}
         </section>
       )}
     </div>
